@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceGuard — Audio Deepfake Detector</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #020c1b;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 40px 20px;
+            background-image:
+                radial-gradient(ellipse at 20% 50%, rgba(251, 146, 60, 0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(15, 52, 96, 0.15) 0%, transparent 50%);
+        }
+
+        .container { max-width: 850px; margin: 0 auto; }
+
+        /* ── HEADER ── */
+        .header {
+            text-align: center;
+            margin-bottom: 45px;
+        }
+
+        .header-badge {
+            display: inline-block;
+            background: rgba(251, 146, 60, 0.1);
+            border: 1px solid rgba(251, 146, 60, 0.2);
+            color: #fb923c;
+            font-size: 0.7rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin-bottom: 15px;
+        }
+
+        .header h1 {
+            font-size: 3.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 0%, #fb923c 50%, #f97316 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 4s linear infinite;
+            letter-spacing: -1px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .header p {
+            color: #4a6080;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .header-line {
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #fb923c, transparent);
+            margin: 15px auto 0;
+        }
+
+        /* ── TABS ── */
+        .tabs {
+            display: flex;
+            background: #0a1628;
+            border: 1px solid #0f2035;
+            border-radius: 14px;
+            padding: 5px;
+            margin-bottom: 20px;
+            gap: 5px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 13px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            background: transparent;
+            color: #4a6080;
+            letter-spacing: 0.5px;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #ea580c, #f97316);
+            color: white;
+            box-shadow: 0 0 25px rgba(249, 115, 22, 0.3);
+        }
+
+        /* ── UPLOAD BOX ── */
+        .upload-box {
+            background: #0a1628;
+            border: 1px solid #0f2035;
+            border-radius: 20px;
+            padding: 45px 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+
+        .upload-box::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #fb923c, transparent);
+        }
+
+        .upload-box:hover { border-color: #ea580c; }
+        .upload-box input[type="file"] { display: none; }
+
+        .upload-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #ea580c, #f97316);
+            color: white;
+            padding: 13px 32px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+            box-shadow: 0 0 25px rgba(249, 115, 22, 0.2);
+        }
+
+        .upload-label:hover {
+            box-shadow: 0 0 35px rgba(249, 115, 22, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .file-name { color: #4a6080; font-size: 0.85rem; margin-bottom: 15px; }
+
+        /* ── RECORD BOX ── */
+        .record-box {
+            background: #0a1628;
+            border: 1px solid #0f2035;
+            border-radius: 20px;
+            padding: 45px 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            display: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .record-box::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #ef4444, transparent);
+        }
+
+        .record-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: white;
+            border: none;
+            padding: 14px 35px;
+            border-radius: 50px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+        }
+
+        .record-btn.recording {
+            animation: recordPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes recordPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
+            50% { box-shadow: 0 0 50px rgba(239, 68, 68, 0.7); }
+        }
+
+        /* ── WAVEFORM ── */
+        .waveform-container {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            height: 60px;
+            margin-bottom: 15px;
+        }
+
+        .waveform-bar {
+            width: 4px;
+            background: linear-gradient(180deg, #fb923c, #ea580c);
+            border-radius: 4px;
+            animation: waveAnim 1s ease-in-out infinite;
+        }
+
+        .waveform-bar:nth-child(1)  { animation-delay: 0.0s; }
+        .waveform-bar:nth-child(2)  { animation-delay: 0.1s; }
+        .waveform-bar:nth-child(3)  { animation-delay: 0.2s; }
+        .waveform-bar:nth-child(4)  { animation-delay: 0.3s; }
+        .waveform-bar:nth-child(5)  { animation-delay: 0.4s; }
+        .waveform-bar:nth-child(6)  { animation-delay: 0.5s; }
+        .waveform-bar:nth-child(7)  { animation-delay: 0.6s; }
+        .waveform-bar:nth-child(8)  { animation-delay: 0.7s; }
+        .waveform-bar:nth-child(9)  { animation-delay: 0.8s; }
+        .waveform-bar:nth-child(10) { animation-delay: 0.9s; }
+        .waveform-bar:nth-child(11) { animation-delay: 0.8s; }
+        .waveform-bar:nth-child(12) { animation-delay: 0.7s; }
+        .waveform-bar:nth-child(13) { animation-delay: 0.6s; }
+        .waveform-bar:nth-child(14) { animation-delay: 0.5s; }
+        .waveform-bar:nth-child(15) { animation-delay: 0.4s; }
+        .waveform-bar:nth-child(16) { animation-delay: 0.3s; }
+        .waveform-bar:nth-child(17) { animation-delay: 0.2s; }
+        .waveform-bar:nth-child(18) { animation-delay: 0.1s; }
+        .waveform-bar:nth-child(19) { animation-delay: 0.0s; }
+
+        @keyframes waveAnim {
+            0%, 100% { height: 8px; opacity: 0.3; }
+            50% { height: 50px; opacity: 1; }
+        }
+
+        .record-status { color: #4a6080; font-size: 0.85rem; margin-bottom: 15px; }
+        .record-status.active { color: #ef4444; }
+
+        .timer {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #fb923c;
+            margin-bottom: 15px;
+            display: none;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 25px rgba(251, 146, 60, 0.6);
+        }
+
+        audio { width: 100%; margin-top: 10px; border-radius: 8px; }
+
+        /* ── ANALYZE BUTTON ── */
+        .analyze-btn {
+            background: linear-gradient(135deg, #ea580c, #f97316);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s;
+            box-shadow: 0 0 25px rgba(249, 115, 22, 0.2);
+            letter-spacing: 0.5px;
+        }
+
+        .analyze-btn:hover:not(:disabled) {
+            box-shadow: 0 0 40px rgba(249, 115, 22, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .analyze-btn:disabled {
+            background: #0f2035;
+            color: #4a6080;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* ── LOADING ── */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            display: none;
+        }
+
+        .loading-rings {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            position: relative;
+            height: 80px;
+        }
+
+        .ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid transparent;
+        }
+
+        .ring-1 {
+            width: 70px; height: 70px;
+            border-top-color: #fb923c;
+            animation: spin 1s linear infinite;
+        }
+
+        .ring-2 {
+            width: 50px; height: 50px;
+            border-top-color: #f97316;
+            animation: spin 0.8s linear infinite reverse;
+        }
+
+        .ring-3 {
+            width: 30px; height: 30px;
+            border-top-color: #ea580c;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-text {
+            color: #fb923c;
+            font-size: 0.9rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        .loading-steps {
+            color: #4a6080;
+            font-size: 0.8rem;
+            margin-top: 8px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ── RESULT BOX ── */
+        .result-box {
+            background: #0a1628;
+            border: 1px solid #0f2035;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .verdict {
+            font-size: 2rem;
+            font-weight: 800;
+            text-align: center;
+            padding: 25px;
+            border-radius: 14px;
+            margin-bottom: 25px;
+            letter-spacing: 2px;
+        }
+
+        .verdict.fake {
+            background: rgba(239, 68, 68, 0.06);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            box-shadow: 0 0 40px rgba(239, 68, 68, 0.08);
+            text-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+        }
+
+        .verdict.real {
+            background: rgba(251, 146, 60, 0.06);
+            color: #fb923c;
+            border: 1px solid rgba(251, 146, 60, 0.2);
+            box-shadow: 0 0 40px rgba(251, 146, 60, 0.08);
+            text-shadow: 0 0 25px rgba(251, 146, 60, 0.4);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: #020c1b;
+            border: 1px solid #0f2035;
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+
+        .stat-card:hover { border-color: #ea580c; }
+
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fb923c, #f97316);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-card .label {
+            font-size: 0.7rem;
+            color: #4a6080;
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .segments-title {
+            font-size: 0.7rem;
+            color: #4a6080;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .segment {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #020c1b;
+            border: 1px solid #0f2035;
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            transition: border-color 0.3s;
+        }
+
+        .segment:hover { border-color: #1a3a5c; }
+        .seg-label { color: #4a6080; font-size: 0.85rem; }
+        .seg-verdict { font-weight: 700; font-size: 0.8rem; letter-spacing: 1.5px; }
+        .seg-verdict.fake { color: #ef4444; }
+        .seg-verdict.real { color: #fb923c; }
+        .seg-score { color: #4a6080; font-size: 0.8rem; }
+
+        /* ── ERROR ── */
+        .error-box {
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 12px;
+            padding: 15px 20px;
+            color: #ef4444;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 0.9rem;
+        }
+
+        /* ── HISTORY ── */
+        .history-title {
+            font-size: 0.7rem;
+            color: #4a6080;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .history-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, #0f2035, transparent);
+        }
+
+        .history-item {
+            background: #0a1628;
+            border: 1px solid #0f2035;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: border-color 0.3s;
+        }
+
+        .history-item:hover { border-color: #1a3a5c; }
+        .h-filename { font-size: 0.9rem; color: #e2e8f0; font-weight: 500; }
+        .h-date { font-size: 0.72rem; color: #4a6080; margin-top: 3px; }
+
+        .badge {
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+        }
+
+        .badge.fake {
+            background: rgba(239, 68, 68, 0.08);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .badge.real {
+            background: rgba(251, 146, 60, 0.08);
+            color: #fb923c;
+            border: 1px solid rgba(251, 146, 60, 0.2);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <div class="header-badge">⚡ Threat Detection System</div>
+        <h1>VoiceGuard</h1>
+        <p>AI-Powered Audio Deepfake Detection</p>
+        <div class="header-line"></div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('upload')">📂 Upload Audio File</button>
+        <button class="tab-btn" onclick="switchTab('record')">🎤 Record From Microphone</button>
+    </div>
+
+    <!-- Upload -->
+    <div class="upload-box" id="uploadBox">
+        <label class="upload-label" for="audioFile">📂 Choose Audio File</label>
+        <input type="file" id="audioFile" accept=".wav,.mp3,.ogg,.flac">
+        <div class="file-name" id="fileName">No file selected</div>
+        <button class="analyze-btn" id="analyzeUploadBtn" onclick="analyzeUpload()" disabled>
+            🔍 Analyze Audio
+        </button>
+    </div>
+
+    <!-- Record -->
+    <div class="record-box" id="recordBox">
+        <button class="record-btn" id="recordBtn" onclick="toggleRecording()">🎤 Start Recording</button>
+        <div class="waveform-container" id="waveform">
+            <div class="waveform-bar"></div><div class="waveform-bar"></div>
+            <div class="waveform-bar"></div><div class="waveform-bar"></div>
+            <div class="waveform-bar"></div><div class="waveform-bar"></div>
+            <div class="waveform-bar"></div><div class="waveform-bar"></div>
+            <div class="waveform-bar"></div><div class="waveform-bar"></div>
+            <div class="waveform-bar"></div><div class="waveform-bar"></div>
+            <div class="waveform-bar"></div><div class="waveform-bar"></div>
+            <div class="waveform-bar"></div><div class="waveform-bar"></div>
+            <div class="waveform-bar"></div><div class="waveform-bar"></div>
+            <div class="waveform-bar"></div>
+        </div>
+        <div class="timer" id="timer">0:00</div>
+        <div class="record-status" id="recordStatus">Click the button to start recording</div>
+        <audio id="audioPlayback" controls style="display:none;"></audio>
+        <br><br>
+        <button class="analyze-btn" id="analyzeRecordBtn" onclick="analyzeRecording()" disabled>
+            🔍 Analyze Recording
+        </button>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- Loading -->
+    <div class="loading" id="loading">
+        <div class="loading-rings">
+            <div class="ring ring-1"></div>
+            <div class="ring ring-2"></div>
+            <div class="ring ring-3"></div>
+        </div>
+        <div class="loading-text">Analyzing Audio</div>
+        <div class="loading-steps" id="loadingStep">Extracting audio features...</div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-box" id="resultBox">
+        <div class="verdict" id="verdictBox"></div>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="value" id="confidence"></div>
+                <div class="label">Confidence</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="totalSegments"></div>
+                <div class="label">Segments</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="fakeSegments"></div>
+                <div class="label">Flagged</div>
+            </div>
+        </div>
+        <div class="segments-title">Segment Analysis</div>
+        <div id="segmentList"></div>
+    </div>
+
+    {% if detections %}
+    <div>
+        <div class="history-title">Detection History</div>
+        {% for d in detections %}
+        <div class="history-item">
+            <div>
+                <div class="h-filename">{{ d.filename }}</div>
+                <div class="h-date">{{ d.detected_at }} — {{ d.duration }}s — {{ d.total_segments }} segments</div>
+            </div>
+            <span class="badge {{ d.verdict.lower() }}">{{ d.verdict }} {{ d.confidence }}%</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    const steps = [
+        "Extracting audio features...",
+        "Running MFCC analysis...",
+        "Analyzing spectral patterns...",
+        "Running SVM classifier...",
+        "Calculating confidence score..."
+    ];
+    let stepIndex = 0;
+    let stepInterval = null;
+
+    function startLoadingSteps() {
+        stepIndex = 0;
+        document.getElementById("loadingStep").textContent = steps[0];
+        stepInterval = setInterval(() => {
+            stepIndex = (stepIndex + 1) % steps.length;
+            document.getElementById("loadingStep").textContent = steps[stepIndex];
+        }, 800);
+    }
+
+    function stopLoadingSteps() { clearInterval(stepInterval); }
+
+    function switchTab(tab) {
+        document.getElementById("uploadBox").style.display = "none";
+        document.getElementById("recordBox").style.display = "none";
+        document.querySelectorAll(".tab-btn").forEach(t => t.classList.remove("active"));
+        if (tab === "upload") {
+            document.getElementById("uploadBox").style.display = "block";
+            document.querySelectorAll(".tab-btn")[0].classList.add("active");
+        } else {
+            document.getElementById("recordBox").style.display = "block";
+            document.querySelectorAll(".tab-btn")[1].classList.add("active");
+        }
+        document.getElementById("resultBox").style.display = "none";
+        document.getElementById("errorBox").style.display = "none";
+    }
+
+    document.getElementById("audioFile").addEventListener("change", function() {
+        document.getElementById("fileName").textContent = this.files[0] ? this.files[0].name : "No file selected";
+        document.getElementById("analyzeUploadBtn").disabled = !this.files[0];
+    });
+
+    function analyzeUpload() {
+        const file = document.getElementById("audioFile").files[0];
+        if (!file) return;
+        showLoading();
+        const formData = new FormData();
+        formData.append("audio_file", file);
+        fetch("/analyze", { method: "POST", body: formData })
+            .then(r => r.json()).then(showResult)
+            .catch(() => showError("Something went wrong. Please try again."));
+    }
+
+    let mediaRecorder = null, audioChunks = [], recordedBlob = null;
+    let timerInterval = null, secondsElapsed = 0;
+
+    function toggleRecording() {
+        if (mediaRecorder && mediaRecorder.state === "recording") stopRecording();
+        else startRecording();
+    }
+
+    function startRecording() {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            audioChunks = [];
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                recordedBlob = new Blob(audioChunks, { type: "audio/wav" });
+                const playback = document.getElementById("audioPlayback");
+                playback.src = URL.createObjectURL(recordedBlob);
+                playback.style.display = "block";
+                document.getElementById("analyzeRecordBtn").disabled = false;
+                document.getElementById("recordStatus").textContent = "✅ Recording saved — click Analyze to detect";
+                document.getElementById("recordStatus").classList.remove("active");
+                document.getElementById("waveform").style.display = "none";
+            };
+            mediaRecorder.start();
+            document.getElementById("recordBtn").textContent = "⏹ Stop Recording";
+            document.getElementById("recordBtn").classList.add("recording");
+            document.getElementById("recordStatus").textContent = "🔴 Recording in progress...";
+            document.getElementById("recordStatus").classList.add("active");
+            document.getElementById("timer").style.display = "block";
+            document.getElementById("waveform").style.display = "flex";
+            secondsElapsed = 0;
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                const m = Math.floor(secondsElapsed / 60);
+                const s = secondsElapsed % 60;
+                document.getElementById("timer").textContent = `${m}:${s.toString().padStart(2, "0")}`;
+            }, 1000);
+        }).catch(() => showError("Microphone access denied."));
+    }
+
+    function stopRecording() {
+        if (mediaRecorder) {
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(t => t.stop());
+            clearInterval(timerInterval);
+            document.getElementById("recordBtn").textContent = "🎤 Record Again";
+            document.getElementById("recordBtn").classList.remove("recording");
+            document.getElementById("timer").style.display = "none";
+        }
+    }
+
+    function analyzeRecording() {
+        if (!recordedBlob) return;
+        showLoading();
+        const formData = new FormData();
+        formData.append("audio_data", recordedBlob, "recorded_audio.wav");
+        fetch("/analyze-recording", { method: "POST", body: formData })
+            .then(r => r.json()).then(showResult)
+            .catch(() => showError("Something went wrong. Please try again."));
+    }
+
+    function showLoading() {
+        document.getElementById("resultBox").style.display = "none";
+        document.getElementById("errorBox").style.display = "none";
+        document.getElementById("loading").style.display = "block";
+        startLoadingSteps();
+    }
+
+    function showResult(data) {
+        stopLoadingSteps();
+        document.getElementById("loading").style.display = "none";
+        if (data.error) { showError(data.error); return; }
+        const verdictBox = document.getElementById("verdictBox");
+        verdictBox.textContent = data.verdict === "FAKE" ? "🔴 FAKE VOICE DETECTED" : "🟢 REAL VOICE CONFIRMED";
+        verdictBox.className = "verdict " + data.verdict.toLowerCase();
+        document.getElementById("confidence").textContent = data.confidence + "%";
+        document.getElementById("totalSegments").textContent = data.total_segments;
+        document.getElementById("fakeSegments").textContent = data.fake_segments_count;
+        const segmentList = document.getElementById("segmentList");
+        segmentList.innerHTML = "";
+        data.segment_results.forEach(seg => {
+            const div = document.createElement("div");
+            div.className = "segment";
+            div.innerHTML = `
+                <span class="seg-label">Segment ${seg.segment_number}</span>
+                <span class="seg-verdict ${seg.verdict.toLowerCase()}">${seg.verdict}</span>
+                <span class="seg-score">Fake Score: ${(seg.fake_score * 100).toFixed(1)}%</span>
+            `;
+            segmentList.appendChild(div);
+        });
+        document.getElementById("resultBox").style.display = "block";
+    }
+
+    function showError(message) {
+        stopLoadingSteps();
+        document.getElementById("loading").style.display = "none";
+        const errorBox = document.getElementById("errorBox");
+        errorBox.textContent = "❌ " + message;
+        errorBox.style.display = "block";
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+voiceguard.db
+voiceguard_model.pkl
+uploads/
+*.mp3
+*.wav
+*.ogg
+*.flac
+*.m4a
